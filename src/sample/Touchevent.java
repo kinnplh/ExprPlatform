@@ -46,7 +46,7 @@ public class Touchevent implements Runnable {
 	private Controller c;
 	private File f;
 
-	Touchevent(Controller c) {
+	public Touchevent(Controller c) {
 		threadEvent = null;
 		threadInput = null;
 		threadError = null;
@@ -80,7 +80,9 @@ public class Touchevent implements Runnable {
 
 	public void start() {
 		if (threadEvent == null) {
-			f = new File("./TouchData/" + "Task_" + c.stageList.get(c.crtStage).tag + "_" + System.currentTimeMillis() + ".txt");
+			String tag = c.stageList.get(c.crtStage).tag;
+			tag = tag.replace(' ', '_');
+			f = new File("data/TouchData/" + "Task_" + tag + "_" + System.currentTimeMillis() + ".txt");
 			try {
 				f.createNewFile();
 			} catch (IOException e) {

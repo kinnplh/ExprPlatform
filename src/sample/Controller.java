@@ -18,7 +18,6 @@ import java.net.URL;
 import java.util.*;
 
 public class Controller implements Initializable {
-	static final String root =  "/Users/kinnplh/Desktop/huaweitouch/timeStamp/";
 	static String pathRoot;
 	public final static String preInst = "您好，感谢您参与本次实验！\n" +
 			"您的参与将会帮助我们进一步提升移动触屏设备的用户体验。\n" +
@@ -33,10 +32,11 @@ public class Controller implements Initializable {
 	public int PREPARING = 0;
 	public int PROCESSING = 1;
 	Touchevent touchevent = new Touchevent(this);
-	CapacityDataThread cdt = new CapacityDataThread();
+	CapacityDataThread cdt = new CapacityDataThread(this);
 	public int LONGISLAND = 0;
 	public int LITTLEV = 1;
 	public int typePhone = LITTLEV;
+	public boolean isUnix = true;
 
 	@FXML
 	public AnchorPane anchorPane;
@@ -78,15 +78,20 @@ public class Controller implements Initializable {
 		IPLabel.setText(getLocalHostIP());
 		inst.setText(preInst);
 		connectNet.setOnMouseClicked(event -> {
-			netThread = new NetThread(Integer.valueOf(portInput.getText()), this);
-			netThread.start();
-			connectNet.setDisable(true);
-			startExpr.setDisable(false);
-			portInput.setDisable(true);
+			try {
+				netThread = new NetThread(Integer.valueOf(portInput.getText()), this);
+				netThread.start();
+				connectNet.setDisable(true);
+				startExpr.setDisable(false);
+				portInput.setDisable(true);
+			} catch (IOException e) {
+				showDraw("端口已被绑定！");
+				e.printStackTrace();
+			}
 		});
 
 		phoneType.setOnMouseClicked(event -> {
-			System.out.print("Clicked");
+			System.out.println("PhoneType Clicked");
 			if (phoneType.isSelected()) {
 				typePhone = LITTLEV;
 			}
@@ -97,8 +102,12 @@ public class Controller implements Initializable {
 
 		startExpr.setOnMouseClicked(event -> {
 			boolean success = false;
-			if ((clientIps == null) || (clientIps.getValue() == null) || (clientIps.getValue().length() == 0) || (stageList.size() == 0)) {
-				showDraw("未选择设备或实验！");
+			if ((clientIps == null) || (clientIps.getValue() == null) || (clientIps.getValue().length() == 0)) {
+				showDraw("未选择设备！");
+				return;
+			}
+			if (stageList.size() == 0) {
+				showDraw("未选择实验！");
 				return;
 			}
 			System.out.println(clientIps.getValue());
@@ -112,7 +121,7 @@ public class Controller implements Initializable {
 
 			if (success) {
 				System.out.println("connect to the phone successfully");
-				pathRoot = String.format("%s%d.txt", root, System.currentTimeMillis());
+				pathRoot = String.format("data/ExprData/%d.txt", System.currentTimeMillis());
 				File f = new File(pathRoot);
 				try {
 					f.createNewFile();
@@ -134,21 +143,21 @@ public class Controller implements Initializable {
 			reTry.setDisable(false);
 
 			startSensor();
-			startCap();
+			startCapacity();
 			startEvent();
 		});
 
 		nextStage.setOnMouseClicked(event -> {
 			if (crtStage >= 0) {
 				endSensor();
-				endCap();
+				endCapacity();
 				endEvent();
 			}
 			crtStage += 1;
 			reTry.setDisable(true);
 			if (crtStage >= stageList.size()) {
 				crtStage = -1;
-				inst.setText("实验结束，感谢您的配合。");
+				inst.setText("实验结束，感谢您的配合！");
 				crtState = PREPARING;
 				startExpr.setDisable(false);
 				nextStage.setDisable(true);
@@ -194,30 +203,37 @@ public class Controller implements Initializable {
 		reTry.setOnMouseClicked(event -> {
 			endEvent();
 			endSensor();
-			endCap();
+			endCapacity();
 
 			startEvent();
 			startSensor();
-			startCap();
+			startCapacity();
 		});
 
+		stageList = new ArrayList<>();
 		disconnectNet.setDisable(true);
 		startExpr.setDisable(true);
 		startStage.setDisable(true);
 		nextStage.setDisable(true);
-		stageList = new ArrayList<>();
 		reTry.setDisable(true);
 		phoneType.setSelected(true);
+		String osName = System.getProperties().getProperty("os.name");
+		if (osName.startsWith("Windows")) {
+			System.out.println("System: Windows");
+			isUnix = false;
+		}
+		else {
+			System.out.println("System: Unix");
+			isUnix = true;
+		}
 	}
 
 	public static String getLocalHostIP() {
 		String ip;
 		try {
-			/**返回本地主机。*/
 			InetAddress addr = InetAddress.getLocalHost();
-			/**返回 IP 地址字符串（以文本表现形式）*/
 			ip = addr.getHostAddress();
-		} catch(Exception e) {
+		} catch (Exception e) {
 			ip = "";
 		}
 		return ip;
@@ -227,17 +243,16 @@ public class Controller implements Initializable {
 		clientIps.getItems().add(str);
 	}
 
-	void startCap()	{
+	void startCapacity()	{
 		if (typePhone == LITTLEV) {
 			try {
 				Runtime.getRuntime().exec("adb shell setenforce 0");
 				Process p = Runtime.getRuntime().exec("adb shell aptouch_daemon_debug logtofile on");
 				BufferedReader stdout = new BufferedReader(new InputStreamReader(p.getInputStream()));
-//				System.out.println(stdout.readLine());
 				String stdOut = stdout.readLine();
 				System.out.println(stdOut);
 				if ((stdOut == null) || (!stdOut.equals("start logtofile success."))) {
-					showDraw("发生致命错误！");
+					showDraw("电容数据采集开始异常！");
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -247,11 +262,11 @@ public class Controller implements Initializable {
 			cdt.start("Task_" + stageList.get(crtStage).tag + "_" + System.currentTimeMillis());
 		}
 		else {
-			System.out.println("Unknown type");
+			System.out.println("Unknown phone type");
 		}
 	}
 
-	void endCap() {
+	void endCapacity() {
 		if (typePhone == LITTLEV) {
 			try {
 				Process p = Runtime.getRuntime().exec("adb shell aptouch_daemon_debug logtofile off");
@@ -259,7 +274,7 @@ public class Controller implements Initializable {
 				String stdOut = stdout.readLine();
 				System.out.println(stdOut);
 				if (!stdOut.equals("APTOUCH_SET_LOGTOFILE_MODE excuted done")) {
-					showDraw("发生致命错误！");
+					showDraw("电容数据采集结束异常！");
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -269,7 +284,7 @@ public class Controller implements Initializable {
 			cdt.finish();
 		}
 		else {
-			System.out.println("Unknown type");
+			System.out.println("Unknown phone type");
 		}
 	}
 
@@ -284,7 +299,7 @@ public class Controller implements Initializable {
 	void startSensor() {
 		try {
 			out.flush();
-			out.writeUTF("Task_" + stageList.get(crtStage).tag + "_" + System.currentTimeMillis() + '\n');
+			out.writeUTF("Task_" + stageList.get(crtStage).tag.replace(' ', '_') + "_" + System.currentTimeMillis() + '\n');
 			out.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -323,26 +338,22 @@ public class Controller implements Initializable {
 }
 
 class NetThread extends Thread {
-	ServerSocket servSock;
 	Controller c;
+	ServerSocket servSock;
 	Map<String, Socket> ipToSocket;
 
-	public NetThread(int portNum, Controller controller) {
+	public NetThread(int portNum, Controller controller) throws IOException {
 		super();
-		ipToSocket = new HashMap<>();
 		c = controller;
-		try {
-			servSock = new ServerSocket(portNum);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		ipToSocket = new HashMap<>();
+		servSock = new ServerSocket(portNum);
 	}
 
 	public void run() {
-		for(;;){
+		for(;;) {
 			try {
 				Socket clntSock = servSock.accept();
-				System.out.println("NewConnect!");
+				System.out.println("New connect!");
 				int lastSize = ipToSocket.size();
 				ipToSocket.put(clntSock.getInetAddress().getHostAddress(), clntSock);
 				if (lastSize != ipToSocket.size()) {
@@ -362,18 +373,20 @@ class Stage {
 	final static int END = 3;
 
 	String inst;
-	String tag;Stage(String _inst, String _tag) {
+	String tag;
+
+	public Stage(String _inst, String _tag) {
 		inst = _inst;
 		tag = _tag;
 	}
 
-	void tagToFile(int state) {
+	public void tagToFile(int state) {
 		BufferedWriter out = null;
 		try {
 			out = new BufferedWriter(new OutputStreamWriter(
 					new FileOutputStream(Controller.pathRoot, true)));
-			out.write(String.format("%d: %s ", System.currentTimeMillis(), tag));
-			switch (state){
+			out.write(String.format("%d %s ", System.currentTimeMillis(), tag));
+			switch (state) {
 				case START:
 					out.write("start\n");
 					break;
@@ -387,14 +400,9 @@ class Stage {
 					out.write("end\n");
 					break;
 			}
+			out.close();
 		} catch (Exception e) {
 			e.printStackTrace();
-		} finally {
-			try {
-				out.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
 		}
 	}
 }
