@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="ExprPlatform:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/ExprPlatform_jar</output-path>
+    <root id="archive" name="ExprPlatform.jar">
+      <element id="module-output" name="ExprPlatform" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../Expr1/jfoenix.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
