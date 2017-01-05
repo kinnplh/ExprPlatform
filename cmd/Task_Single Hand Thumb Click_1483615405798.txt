@@ -1,2 +1,0 @@
-cd sdcard
-sh capacity.sh Task_Single Hand Thumb Click_1483615405798
